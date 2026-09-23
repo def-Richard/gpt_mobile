@@ -2,6 +2,11 @@
 
 This file provides guidance to AI coding agents working on this Android codebase.
 
+## Repository inspection and local versions
+
+- Resolve file paths with `rg --files` before reading them; do not guess a filename from its class name. On Windows, pass directories and `-g` filters to `rg` rather than literal wildcard paths.
+- Downstream versions append `-1`, `-2`, etc. to the upstream `versionName`. Each delivered update must also increase `versionCode`; changing only the display name does not make Android recognize an upgrade. The current release is `0.9.0-2` with `versionCode = 27` (the earlier local test build used 26).
+
 ## Project Overview
 
 GPT Mobile is an Android chat app supporting multiple AI providers (OpenAI, Anthropic, Google, Groq, Ollama, OpenRouter). Built with Kotlin, Jetpack Compose, MVVM architecture, and Hilt DI.
@@ -254,7 +259,7 @@ fun provideChatRepository(...): ChatRepository = ChatRepositoryImpl(...)
 ## Architecture Notes
 
 - **Min SDK**: 31 (Android 12)
-- **Target SDK**: 36
+- **Target SDK**: 37
 - **Java**: 17
 - **Pattern**: MVVM with Repository layer
 - **DI**: Hilt

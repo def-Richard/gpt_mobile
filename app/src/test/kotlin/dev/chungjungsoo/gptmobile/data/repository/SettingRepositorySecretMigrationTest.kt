@@ -19,6 +19,21 @@ import org.junit.Test
 
 class SettingRepositorySecretMigrationTest {
     @Test
+    fun `unrelated settings preserve refreshed models while connection changes clear them`() = runBlocking {
+        val models = listOf(dev.chungjungsoo.gptmobile.data.network.OpenAIModelOption("cached"))
+        val dao = FakePlatformV2Dao()
+        val repository = createRepository(dao, FakeSecretVault())
+        repository.addPlatformV2(testPlatform(token = "secret").copy(modelCatalog = models))
+        val original = repository.fetchPlatformV2s().single()
+        val refreshed = listOf(dev.chungjungsoo.gptmobile.data.network.OpenAIModelOption("replacement"))
+        assertTrue(dao.replaceModelCatalog(original, refreshed))
+        repository.updatePlatformV2(original.copy(reasoning = true))
+        assertEquals(refreshed, repository.fetchPlatformV2s().single().modelCatalog)
+        repository.updatePlatformV2(original.copy(token = "new-secret"))
+        assertTrue(repository.fetchPlatformV2s().single().modelCatalog.isEmpty())
+    }
+
+    @Test
     fun `profile CRUD stores only a verified vault reference and resolves transient tokens`() = runBlocking {
         val dao = FakePlatformV2Dao()
         val vault = FakeSecretVault()

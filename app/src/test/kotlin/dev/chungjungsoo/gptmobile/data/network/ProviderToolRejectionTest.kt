@@ -190,7 +190,7 @@ class ProviderToolRejectionTest {
             }
         }
 
-        assertEquals("files-api-2025-04-14,interleaved-thinking-2025-05-14", betaHeader)
+        assertEquals("files-api-2025-04-14,interleaved-thinking-2025-05-14", betaHeader) // gitleaks:allow -- public API feature names, not credentials
     }
 
     @Test

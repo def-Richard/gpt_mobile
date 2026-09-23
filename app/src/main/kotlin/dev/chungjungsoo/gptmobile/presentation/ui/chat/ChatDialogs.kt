@@ -36,10 +36,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.database.entity.MessageV2
+import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveContent
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveThoughts
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.supportsOpenAIOptions
+import dev.chungjungsoo.gptmobile.presentation.common.OpenAIModelField
 import dev.chungjungsoo.gptmobile.presentation.common.SettingItem
+import dev.chungjungsoo.gptmobile.presentation.common.rememberOpenAIProfileState
 import dev.chungjungsoo.gptmobile.presentation.ui.setup.DownloadedLocalModelOption
 import dev.chungjungsoo.gptmobile.presentation.ui.setup.LocalModelPicker
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +100,7 @@ fun ChatModelDialog(
     initialModels: Map<String, String>,
     platformNames: Map<String, String>,
     platformClientTypes: Map<String, ClientType> = emptyMap(),
+    platforms: Map<String, PlatformV2> = emptyMap(),
     downloadedLocalModels: List<DownloadedLocalModelOption> = emptyList(),
     onNavigateToLocalModels: () -> Unit = {},
     onDismissRequest: () -> Unit,
@@ -136,6 +141,10 @@ fun ChatModelDialog(
                             onNavigateToLocalModels = onNavigateToLocalModels,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
                         )
+                    } else if (platformClientTypes[platformUid]?.supportsOpenAIOptions() == true && platforms[platformUid] != null) {
+                        val platform = platforms.getValue(platformUid).copy(model = models[platformUid].orEmpty())
+                        Text(platformName)
+                        OpenAIModelField(platform, rememberOpenAIProfileState(platform), { value -> models = models + (platformUid to value) })
                     } else {
                         OutlinedTextField(
                             modifier = Modifier

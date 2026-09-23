@@ -9,6 +9,8 @@ import dev.chungjungsoo.gptmobile.data.agent.tool.McpOAuthCoordinator
 import dev.chungjungsoo.gptmobile.data.catalog.CatalogCapabilities
 import dev.chungjungsoo.gptmobile.data.catalog.CatalogEntry
 import dev.chungjungsoo.gptmobile.data.context.ContextBuilder
+import dev.chungjungsoo.gptmobile.data.context.ConversationTurn
+import dev.chungjungsoo.gptmobile.data.context.checkpointUserMessage
 import dev.chungjungsoo.gptmobile.data.database.dao.AgentToolBindingWithConnection
 import dev.chungjungsoo.gptmobile.data.database.dao.ToolConnectionDao
 import dev.chungjungsoo.gptmobile.data.database.entity.AgentToolBinding
@@ -72,6 +74,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatRepositoryImplTest {
+
+    @Test
+    fun `compaction summary does not hide the chat that owns the Fast selection`() {
+        val summary = ConversationTurn(checkpointUserMessage("Summary", emptyList()), null, false)
+        val current = ConversationTurn(MessageV2(chatId = 42, content = "Continue", platformType = null), null, true)
+        assertEquals(42, preparedConversationChatId(listOf(summary, current)))
+        assertEquals(0, preparedConversationChatId(listOf(summary)))
+    }
 
     @Test(expected = IllegalStateException::class)
     fun `blank response input without encodable parts throws`() {

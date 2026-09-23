@@ -111,6 +111,8 @@ import dev.chungjungsoo.gptmobile.data.database.entity.effectiveContent
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveRunId
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveThoughts
 import dev.chungjungsoo.gptmobile.data.database.entity.effectiveTimeline
+import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.supportsOpenAIOptions
 import dev.chungjungsoo.gptmobile.util.isAssistantErrorMessage
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -158,8 +160,8 @@ fun ChatScreen(
     val appAllPlatforms by chatViewModel.platformsInApp.collectAsStateWithLifecycle()
     val chatPlatformModels by chatViewModel.chatPlatformModels.collectAsStateWithLifecycle()
     val downloadedLocalModels by chatViewModel.downloadedLocalModels.collectAsStateWithLifecycle()
-    val enabledPlatformLookup = remember(appEnabledPlatforms) { appEnabledPlatforms.associateBy { it.uid } }
-    val canUseChat = (chatViewModel.enabledPlatformsInChat.toSet() - appEnabledPlatforms.map { it.uid }.toSet()).isEmpty()
+    val enabledPlatformLookup = remember(appAllPlatforms) { appAllPlatforms.associateBy { it.uid } }
+    val canUseChat = (chatViewModel.selectedPlatformsInChat.toSet() - appEnabledPlatforms.map { it.uid }.toSet()).isEmpty()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle } && !isContextBusy
     val context = LocalContext.current
     val lastMessageIndex = groupedMessages.userMessages.lastIndex
@@ -334,6 +336,27 @@ fun ChatScreen(
                 }
             }
 
+            chatViewModel.selectedPlatformsInChat.forEach { uid ->
+                val configured = appAllPlatforms.firstOrNull { it.uid == uid }
+                if (configured != null && configured.compatibleType.supportsOpenAIOptions()) {
+                    val platform = chatViewModel.chatPlatform(configured)
+                    val latestUsage = agentRunsById.values.filter {
+                        it.profileUid == uid && it.modelSnapshot == platform.model && it.endpointSnapshot == platform.apiUrl
+                    }.maxByOrNull { it.completedAt ?: it.startedAt ?: it.createdAt }
+                    ChatModelControls(
+                        platform = platform,
+                        providers = appEnabledPlatforms.filter { it.compatibleType.supportsOpenAIOptions() },
+                        usage = latestUsage,
+                        enabled = isIdle,
+                        onProvider = chatViewModel::selectChatProvider,
+                        onModel = { chatViewModel.updateChatPlatformModels(mapOf(uid to it)) },
+                        onEffort = { chatViewModel.updateChatReasoningEffort(uid, it) },
+                        onFastMode = { chatViewModel.updateChatFastMode(uid, it) },
+                        fastMode = uid in chatRoom.fastPlatforms,
+                        onContextSettings = { chatViewModel.openChatContextSettings(uid) }
+                    )
+                }
+            }
             ChatInputBox(
                 inputState = chatViewModel.question,
                 chatEnabled = canUseChat,
@@ -407,6 +430,7 @@ fun ChatScreen(
                 initialModels = chatPlatformModels,
                 platformNames = platformNames,
                 platformClientTypes = appAllPlatforms.associate { it.uid to it.compatibleType },
+                platforms = appAllPlatforms.associateBy { it.uid },
                 downloadedLocalModels = downloadedLocalModels,
                 onNavigateToLocalModels = onNavigateToLocalModels,
                 onDismissRequest = chatViewModel::closeChatModelDialog,
@@ -511,6 +535,10 @@ private fun ChatMessagePair(
             assistantMessage.activeRevisionIndex != ACTIVE_REVISION_LATEST
     } ?: false
     val selectedPlatformUid = enabledPlatformsInChat.getOrElse(platformIndexState) { "" }
+    val showMetadata = (
+        agentRun?.providerSnapshot?.let { value -> ClientType.entries.firstOrNull { it.name == value } }
+            ?: enabledPlatformLookup[selectedPlatformUid]?.compatibleType
+        )?.supportsOpenAIOptions() == true
     val isCurrentPlatformLoading =
         loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
     val canEdit = canUseChat && isIdle
@@ -533,6 +561,9 @@ private fun ChatMessagePair(
                 onCopyClick = { onCopyText(message.content) },
                 onEditClick = { onEditQuestion(message) }
             )
+            if (showMetadata) {
+                Text(formatMessageTime(message.createdAt), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 6.dp))
+            }
         }
 
         Column(
@@ -584,6 +615,8 @@ private fun ChatMessagePair(
                 timeline = assistantTimeline,
                 attachments = selectedAssistantMessage?.attachments.orEmpty().map { it.filePathForDisplay },
                 agentRun = agentRun,
+                showMetadata = showMetadata,
+                replyAt = agentRun?.completedAt ?: selectedAssistantMessage?.let { it.revisions.getOrNull(it.activeRevisionIndex)?.createdAt ?: it.createdAt },
                 runNotices = selectedRunId?.let(runNoticesById::get).orEmpty(),
                 toolEvents = toolEvents,
                 contentIdentity = "$messageIndex:$selectedPlatformUid:${selectedRunId.orEmpty()}:${selectedAssistantMessage?.activeRevisionIndex}",

@@ -1,5 +1,6 @@
 package dev.chungjungsoo.gptmobile.data.context
 
+import dev.chungjungsoo.gptmobile.data.database.dao.PlatformV2Dao
 import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.data.model.ClientType
 import dev.chungjungsoo.gptmobile.data.network.NetworkClient
@@ -24,10 +25,17 @@ fun interface RemoteContextWindowLookup {
 }
 
 class HttpRemoteContextWindowLookup @Inject constructor(
-    private val networkClient: NetworkClient
+    private val networkClient: NetworkClient,
+    private val platforms: PlatformV2Dao
 ) : RemoteContextWindowLookup {
     override suspend fun lookup(platform: PlatformV2): Int? = try {
-        when (platform.compatibleType) {
+        val catalog = if (platform.id > 0) {
+            platforms.getPlatform(platform.id)?.takeIf { it.apiUrl == platform.apiUrl && it.uid == platform.uid }?.modelCatalog.orEmpty()
+        } else {
+            platform.modelCatalog
+        }
+        catalog.firstOrNull { it.id == platform.model }?.contextWindow ?: when (platform.compatibleType) {
+            ClientType.OPENAI, ClientType.CUSTOM -> null
             ClientType.GOOGLE -> fetchGemini(platform)
             ClientType.OPENROUTER -> fetchOpenRouter(platform)
             ClientType.OLLAMA -> fetchOllama(platform)

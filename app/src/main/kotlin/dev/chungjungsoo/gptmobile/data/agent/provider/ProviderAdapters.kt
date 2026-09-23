@@ -39,6 +39,7 @@ import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatCompletionRequest
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatFunction
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatFunctionTool
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatMessage
+import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatStreamOptions
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ChatToolCall
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.OpaqueResponseInput
 import dev.chungjungsoo.gptmobile.data.dto.openai.request.ReasoningConfig
@@ -53,6 +54,8 @@ import dev.chungjungsoo.gptmobile.data.dto.openai.response.ResponseFailedEvent
 import dev.chungjungsoo.gptmobile.data.dto.openai.response.ResponseInProgressEvent
 import dev.chungjungsoo.gptmobile.data.model.ClientType
 import dev.chungjungsoo.gptmobile.data.model.GeminiSafetySettings
+import dev.chungjungsoo.gptmobile.data.model.openAIReasoningEffort
+import dev.chungjungsoo.gptmobile.data.model.openAIServiceTier
 import dev.chungjungsoo.gptmobile.data.network.AnthropicAPI
 import dev.chungjungsoo.gptmobile.data.network.GoogleAPI
 import dev.chungjungsoo.gptmobile.data.network.GroqAPI
@@ -78,7 +81,8 @@ class OpenAIResponsesAdapter @Inject constructor(
         turns: List<ConversationTurn>,
         platform: PlatformV2,
         prepared: PreparedContext? = null,
-        onUnconfirmedRemoteCancellation: (suspend (responseId: String) -> Unit)? = null
+        onUnconfirmedRemoteCancellation: (suspend (responseId: String) -> Unit)? = null,
+        fastMode: Boolean = false
     ): AgentProviderSession {
         val encodedTail = attachmentEncoder.responsesInput(turns, platform.uid)
         val nativeItems = parseOpenAiNativeItems(prepared?.nativeItemsJson)
@@ -98,6 +102,7 @@ class OpenAIResponsesAdapter @Inject constructor(
             ): Flow<ProviderEvent> = flow {
                 val request = ResponsesRequest(
                     model = platform.model,
+                    serviceTier = platform.openAIServiceTier(fastMode),
                     input = when {
                         exchanges.isEmpty() -> initialInput
 
@@ -112,7 +117,7 @@ class OpenAIResponsesAdapter @Inject constructor(
                     maxOutputTokens = resolvedOutputTokenCap(platform, tools.isNotEmpty()),
                     temperature = if (platform.reasoning) null else platform.temperature,
                     topP = if (platform.reasoning) null else platform.topP,
-                    reasoning = if (platform.reasoning) ReasoningConfig(effort = "medium", summary = "auto") else null,
+                    reasoning = platform.openAIReasoningEffort()?.let { ReasoningConfig(effort = it, summary = "auto") },
                     previousResponseId = previousResponseId,
                     tools = tools.takeIf { it.isNotEmpty() }?.map { definition ->
                         ResponseFunctionTool(definition.name, definition.description, definition.inputSchema)
@@ -211,8 +216,10 @@ class OpenAICompatibleAdapter @Inject constructor(
                     model = platform.model,
                     messages = messages,
                     stream = platform.stream,
-                    temperature = platform.temperature,
-                    topP = platform.topP,
+                    temperature = if (platform.reasoning) null else platform.temperature,
+                    topP = if (platform.reasoning) null else platform.topP,
+                    reasoningEffort = platform.openAIReasoningEffort(),
+                    streamOptions = if (platform.stream) ChatStreamOptions() else null,
                     maxTokens = resolvedOutputTokenCap(platform, tools.isNotEmpty()),
                     tools = requestTools
                 )
@@ -586,7 +593,7 @@ private fun createGroqChatCompletionRequest(
         temperature = platform.temperature,
         topP = platform.topP,
         maxCompletionTokens = resolvedOutputTokenCap(platform),
-        reasoningEffort = if (platform.reasoning && isGptOssModel) "medium" else null,
+        reasoningEffort = platform.openAIReasoningEffort(),
         reasoningFormat = when {
             platform.reasoning && !isGptOssModel -> "parsed"
             !platform.reasoning && !isGptOssModel -> "hidden"

@@ -352,6 +352,27 @@ class AgentPersistenceDaoInstrumentedTest {
         assertTrue(error is SQLiteConstraintException)
     }
 
+    @Test
+    fun openAIOptionsAndUsage_surviveSaveAndRetry() = runBlocking {
+        val chat = newChat().copy(activePlatformUid = "profile-1", reasoningEfforts = mapOf("profile-1" to "high"))
+        val result = persistTurn(chat, "Question", "usage-run", 100)
+        val runs = database.agentRunDao()
+        runs.markRunning("usage-run", 101)
+        runs.recordUsage("usage-run", 150, 30, 100, 120, 998000, "https://example.com/v1/")
+        runs.finishRunning("usage-run", AgentRunStatus.COMPLETED, 105, null)
+        assertEquals(150L, runs.getById("usage-run")?.inputTokens)
+        assertEquals(100L, runs.getById("usage-run")?.cachedTokens)
+        assertEquals(105L, runs.getById("usage-run")?.completedAt)
+        val persistedChat = database.agentPersistenceDao().getChatRoom(result.chatRoom.id)!!
+        assertEquals("profile-1", persistedChat.activePlatformUid)
+        assertEquals("high", persistedChat.reasoningEfforts["profile-1"])
+        database.agentPersistenceDao().persistAgentRetry(
+            PersistAgentRetryRequest(result.userMessage, result.assistantMessages.single().copy(content = "Answer"), AgentRunDraft("retry-run", "profile-1", "OPENAI", "gpt-5"))
+        )
+        assertEquals(150L, runs.getById("usage-run")?.inputTokens)
+        assertEquals(null, runs.getById("retry-run")?.inputTokens)
+    }
+
     private suspend fun persistTurn(
         chatRoom: ChatRoomV2,
         question: String,

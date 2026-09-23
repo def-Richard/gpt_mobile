@@ -14,6 +14,25 @@ import java.io.File
 
 object ChatDatabaseV2Migrations {
 
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE platform_v2 ADD COLUMN model_catalog TEXT NOT NULL DEFAULT '[]'")
+            db.execSQL("ALTER TABLE chats_v2 ADD COLUMN fast_platforms TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE platform_v2 ADD COLUMN reasoning_effort TEXT NOT NULL DEFAULT 'medium'")
+            db.execSQL("ALTER TABLE chats_v2 ADD COLUMN active_platform_uid TEXT")
+            db.execSQL("ALTER TABLE chats_v2 ADD COLUMN reasoning_efforts TEXT NOT NULL DEFAULT '{}'")
+            listOf("input_tokens", "output_tokens", "cached_tokens", "context_tokens", "context_limit").forEach { column ->
+                db.execSQL("ALTER TABLE agent_runs ADD COLUMN $column INTEGER")
+            }
+            db.execSQL("ALTER TABLE agent_runs ADD COLUMN endpoint_snapshot TEXT")
+        }
+    }
+
     val AGENT_TOOL_BINDING_CALLBACK = object : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {
             installAgentToolBindingConstraints(db)

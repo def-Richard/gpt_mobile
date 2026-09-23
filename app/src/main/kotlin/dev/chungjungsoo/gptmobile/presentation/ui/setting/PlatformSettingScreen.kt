@@ -82,8 +82,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.localruntime.LocalAccelerators
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.supportsOpenAIOptions
 import dev.chungjungsoo.gptmobile.presentation.common.EmptyErrorState
+import dev.chungjungsoo.gptmobile.presentation.common.OpenAIModelDialog
 import dev.chungjungsoo.gptmobile.presentation.common.RadioItem
+import dev.chungjungsoo.gptmobile.presentation.common.ReasoningEffortField
 import dev.chungjungsoo.gptmobile.presentation.common.SettingItem
 import dev.chungjungsoo.gptmobile.presentation.common.SettingsSection
 import dev.chungjungsoo.gptmobile.presentation.theme.defaultSpatialSpec
@@ -314,6 +317,13 @@ fun PlatformSettingScreen(
                                 isChecked = platformData.reasoning,
                                 onCheckedChange = { settingViewModel.toggleReasoning() }
                             )
+                            if (platformData.compatibleType.supportsOpenAIOptions() && platformData.reasoning) {
+                                ReasoningEffortField(
+                                    platformData.reasoningEffort,
+                                    { settingViewModel.updatePlatform(platformData.copy(reasoningEffort = it)) },
+                                    Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                         SettingItem(
                             modifier = Modifier.heightIn(min = 64.dp),
@@ -531,7 +541,13 @@ fun PlatformSettingScreen(
                     if (!isLocalPlatform) {
                         APIUrlDialog(dialogState, platformData.apiUrl, settingViewModel)
                         APIKeyDialog(dialogState, settingViewModel)
-                        ModelDialog(dialogState, platformData.model, settingViewModel)
+                        if (platformData.compatibleType.supportsOpenAIOptions()) {
+                            if (dialogState.isApiModelDialogOpen) {
+                                OpenAIModelDialog(platformData, settingViewModel::updateApiModel, settingViewModel::closeApiModelDialog)
+                            }
+                        } else {
+                            ModelDialog(dialogState, platformData.model, settingViewModel)
+                        }
                         TimeoutDialog(dialogState, platformData.timeout, settingViewModel)
                     } else {
                         LocalModelDialog(

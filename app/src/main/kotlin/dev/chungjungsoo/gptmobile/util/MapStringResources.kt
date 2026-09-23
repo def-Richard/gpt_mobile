@@ -151,6 +151,7 @@ fun getPlatformAPIBrandText(apiType: ApiType) = when (apiType) {
     ApiType.OLLAMA -> stringResource(R.string.ollama_brand_text)
 }
 
+@Composable
 fun getClientTypeDisplayName(clientType: ClientType): String = when (clientType) {
     ClientType.OPENAI -> "OpenAI"
     ClientType.ANTHROPIC -> "Anthropic"
@@ -158,6 +159,6 @@ fun getClientTypeDisplayName(clientType: ClientType): String = when (clientType)
     ClientType.GROQ -> "Groq"
     ClientType.OPENROUTER -> "OpenRouter"
     ClientType.OLLAMA -> "Ollama"
-    ClientType.CUSTOM -> "Custom"
-    ClientType.LITERT_LM -> "Local"
+    ClientType.CUSTOM -> stringResource(R.string.custom)
+    ClientType.LITERT_LM -> stringResource(R.string.litert_lm)
 }

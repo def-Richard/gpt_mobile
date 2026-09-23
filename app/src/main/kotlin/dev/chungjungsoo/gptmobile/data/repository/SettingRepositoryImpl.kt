@@ -156,10 +156,13 @@ class SettingRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updatePlatformV2(platform: PlatformV2) {
+        val previous = platform.id.takeIf { it > 0 }?.let { platformV2Dao.getPlatform(it) }?.let { resolvePlatformToken(it) }
         val previousSecretRef = platform.secretRef
             ?: platform.id.takeIf { it > 0 }?.let { platformV2Dao.getPlatform(it)?.secretRef }
         val securedPlatform = securePlatform(platform)
-        platformV2Dao.editPlatform(securedPlatform)
+        val connectionChanged = previous != null &&
+            (previous.apiUrl != platform.apiUrl || previous.token.orEmpty() != platform.token.orEmpty() || previous.compatibleType != platform.compatibleType)
+        platformV2Dao.editSettingsPreservingCatalog(securedPlatform, resetCatalog = connectionChanged)
         if (previousSecretRef != securedPlatform.secretRef) {
             previousSecretRef?.let { secretVault.delete(it) }
         }

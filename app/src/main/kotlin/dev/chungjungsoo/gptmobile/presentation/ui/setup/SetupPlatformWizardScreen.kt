@@ -31,6 +31,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -44,8 +47,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chungjungsoo.gptmobile.R
+import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.supportsOpenAIOptions
+import dev.chungjungsoo.gptmobile.presentation.common.OpenAIConnectionTest
+import dev.chungjungsoo.gptmobile.presentation.common.OpenAIModelField
 import dev.chungjungsoo.gptmobile.presentation.common.PrimaryLongButton
+import dev.chungjungsoo.gptmobile.presentation.common.ReasoningEffortField
+import dev.chungjungsoo.gptmobile.presentation.common.rememberOpenAIProfileState
 import dev.chungjungsoo.gptmobile.presentation.theme.defaultSpatialSpec
 import dev.chungjungsoo.gptmobile.presentation.theme.fastEffectsSpec
 import dev.chungjungsoo.gptmobile.presentation.ui.localmodel.LocalModelDownloadDialogHost
@@ -65,6 +74,14 @@ fun SetupPlatformWizardScreen(
 ) {
     val wizardStep by setupViewModel.wizardStep.collectAsStateWithLifecycle()
     val selectedClientType by setupViewModel.selectedClientType.collectAsStateWithLifecycle()
+    val apiUrl by setupViewModel.apiUrl.collectAsStateWithLifecycle()
+    val apiKey by setupViewModel.apiKey.collectAsStateWithLifecycle()
+    val model by setupViewModel.model.collectAsStateWithLifecycle()
+    var reasoning by rememberSaveable(selectedClientType) { mutableStateOf(false) }
+    var reasoningEffort by rememberSaveable(selectedClientType) { mutableStateOf("medium") }
+    val draft = PlatformV2(uid = "setup", name = "", compatibleType = selectedClientType ?: ClientType.OPENAI, apiUrl = apiUrl, token = apiKey, model = model, reasoning = reasoning, reasoningEffort = reasoningEffort)
+    val openAIState = rememberOpenAIProfileState(draft)
+    val usesOpenAIOptions = selectedClientType?.supportsOpenAIOptions() == true
     val catalogModels by setupViewModel.catalogLocalModels.collectAsStateWithLifecycle()
     val downloadState by setupViewModel.localModelDownloadState.collectAsStateWithLifecycle()
     val canProceed by setupViewModel.canProceed.collectAsStateWithLifecycle()
@@ -180,6 +197,15 @@ fun SetupPlatformWizardScreen(
                                     },
                                     onNavigateToLocalModels = onNavigateToLocalModels
                                 )
+                            } else if (usesOpenAIOptions) {
+                                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+                                    OpenAIModelField(draft, openAIState, setupViewModel::updateModel)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(stringResource(R.string.extended_thinking), modifier = Modifier.weight(1f))
+                                        androidx.compose.material3.Switch(checked = reasoning, onCheckedChange = { reasoning = it })
+                                    }
+                                    if (reasoning) ReasoningEffortField(reasoningEffort, { reasoningEffort = it })
+                                }
                             } else {
                                 ModelStep(
                                     model = currentModel,
@@ -190,19 +216,28 @@ fun SetupPlatformWizardScreen(
                     }
                 }
 
-                WizardNavigationButton(
-                    canProceed = canProceed && saveStatus !is SaveStatus.Saving,
-                    onNext = {
-                        if (wizardStep == WIZARD_STEP_MODEL) {
-                            setupViewModel.savePlatform(onComplete)
-                        } else {
-                            setupViewModel.nextWizardStep()
-                        }
-                    },
-                    isLastStep = wizardStep == WIZARD_STEP_MODEL,
-                    isSaving = isSaving,
-                    errorMessage = (saveStatus as? SaveStatus.Error)?.message
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (wizardStep == WIZARD_STEP_MODEL && usesOpenAIOptions) {
+                        OpenAIConnectionTest(draft, openAIState, Modifier.weight(1f).padding(start = 24.dp))
+                    }
+                    Box(Modifier.weight(1f)) {
+                        WizardNavigationButton(
+                            canProceed = canProceed &&
+                                saveStatus !is SaveStatus.Saving &&
+                                (!usesOpenAIOptions || wizardStep != WIZARD_STEP_MODEL || openAIState.models.any { it.id == model }),
+                            onNext = {
+                                if (wizardStep == WIZARD_STEP_MODEL) {
+                                    setupViewModel.savePlatform(reasoning, reasoningEffort, openAIState.models, onComplete)
+                                } else {
+                                    setupViewModel.nextWizardStep()
+                                }
+                            },
+                            isLastStep = wizardStep == WIZARD_STEP_MODEL,
+                            isSaving = isSaving,
+                            errorMessage = (saveStatus as? SaveStatus.Error)?.message
+                        )
+                    }
+                }
             }
         }
     }

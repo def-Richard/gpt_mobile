@@ -1,3 +1,59 @@
+# GPT Mobile · 本分支
+
+基于 [Taewan-P/gpt_mobile](https://github.com/Taewan-P/gpt_mobile) 的 Android 多模型聊天客户端，增加 OpenAI 与兼容接口的模型管理、会话控制和用量展示，并完善简体中文体验。
+
+**当前版本：0.9.0-2（Android 内部版本号 27）**
+
+[下载安装包](https://github.com/def-Richard/gpt_mobile/releases/latest) · [详细功能指南](docs/openai-enhancements.md) · [发布说明](docs/release-notes-v0.9.0-2.md)
+
+## 新增功能
+
+| 功能 | 行为 |
+| --- | --- |
+| 模型目录持久化 | 使用 API 地址和密钥拉取模型，下拉选择；目录随提供商保存，重启和切换无需重新请求。 |
+| 手动刷新与检测 | 刷新成功替换目录，失败保留旧目录；保存旁增加实际模型请求检测。 |
+| 会话内控制 | 输入框上方直接切换提供商、模型和推理强度，保留历史回复。 |
+| 推理强度 | 使用 `low / medium / high / xhigh / max`；关闭或选择“默认”时不发送强度参数。 |
+| OpenAI Fast | 模型列表顶部默认关闭，主动勾选才发送 `service_tier: "priority"`，按会话中的提供商保存。 |
+| 上下文用量 | 用量环显示最近一次请求的占用，点击查看已用、剩余及窗口容量，缺失数据保持未知。 |
+| 回复统计 | 紧凑显示 `14:36 · 5s · 172k`；点击查看完整时间或输入、输出、缓存 token 明细。 |
+| 紧凑布局与中文 | 底部收紧为两行操作信息和一行提示；补齐 298 条中文文案及复数资源。 |
+
+## 安装、升级与数据
+
+- 最低要求为 Android 12 / API 31。安装包与校验文件位于[本仓库 Releases](https://github.com/def-Richard/gpt_mobile/releases)。
+- 公开包采用压缩优化的 Release 构建，关闭调试标志；沿用本分支先前本地测试包的开发签名证书，以支持保留数据升级。它不是上游商店签名，不承诺覆盖其他渠道的安装包。
+- 此前本地 `0.9.0-2` 测试包的内部版本号为 26，本次公开包为 27。Android 根据内部版本号及签名判断升级，显示名称相同不代表安装包相同。
+- 旧会话会自动迁移保留。已有提供商首次升级后需手动刷新一次，建立本地模型目录；旧回复没有记录的统计不会补算。
+- 会话、目录、偏好与工具记录保存在设备本地。凭据使用 Android Keystore 加密保护，不包含在会话导出或系统备份中。
+- 刷新、检测及对话会访问用户配置的服务。检测可能消耗少量 token；Fast 的可用性、速度和费用由服务商决定。
+- 模型 ID、协议值、品牌名和服务端原始错误信息不自动翻译。本仓库不包含个人 API 配置、设备数据库或签名私钥。
+
+## 构建
+
+需要 JDK 17、Android SDK Platform 37，仓库自带 Gradle 9.4.1 Wrapper。通过本地 `local.properties` 的 `sdk.dir` 或 `ANDROID_HOME` 指定 SDK；机器路径不提交仓库。
+
+在 PowerShell 7 中执行：
+
+```powershell
+.\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:testDebugUnitTest :app:lintDebug
+.\gradlew.bat :app:assembleRelease
+```
+
+APK 输出至 `app/build/outputs/apk/`。Release 默认产物未签名，分发前需使用自己的密钥签名。Kotlin 格式检查使用 ktlint 1.3.1。
+
+本分支在本地构建签名。启用上游的标签签名工作流前，需要配置 `APP_KEYSTORE`、`KEY_ALIAS`、`KEY_PASSWORD` 三项 GitHub Secrets；未配置时不要启用自动签名构建。不要把密钥或口令提交到源码仓库。
+
+## 上游与许可证
+
+保留上游多提供商对话、工具调用、MCP、LiteRT-LM 本地模型和 Material 3 界面能力。部分本地模型需要 Hugging Face 授权；默认源码未配置 OAuth 客户端，可使用应用的访问令牌入口。
+
+本项目按 [GPL-3.0](LICENSE) 分发。第三方许可证可在应用“关于 → 许可证”查看。下面保留上游原始介绍，其中下载渠道与签名说明属于上游，不代表本分支。
+
+<details>
+<summary>上游原始项目介绍</summary>
+
 <div align="center">
 
 <img width="200" height="200" style="display: block;" src="./images/logo.png">
@@ -102,3 +158,5 @@ For translations, we are using [Hosted Weblate](https://hosted.weblate.org/engag
 See [LICENSE](./LICENSE) for details.
 
 [F-Droid Icon License](https://gitlab.com/fdroid/artwork/-/blob/master/fdroid-logo-2015/README.md)
+
+</details>

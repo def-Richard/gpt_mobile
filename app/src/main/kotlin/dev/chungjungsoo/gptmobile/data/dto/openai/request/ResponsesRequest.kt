@@ -60,7 +60,11 @@ data class ResponsesRequest(
 
     @SerialName("tools")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val tools: List<ResponseFunctionTool>? = null
+    val tools: List<ResponseFunctionTool>? = null,
+
+    @SerialName("service_tier")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val serviceTier: String? = null
 )
 
 @Serializable

@@ -324,8 +324,10 @@ internal fun providerUsage(inputTokens: Int?, outputTokens: Int?): ProviderEvent
 }
 
 internal fun ResponseUsage?.toProviderUsage(): ProviderEvent.Usage? = providerUsage(this?.inputTokens, this?.outputTokens)
+    ?.copy(cachedTokens = this?.inputTokensDetails?.cachedTokens)
 
 internal fun ChatCompletionUsage?.toProviderUsage(): ProviderEvent.Usage? = providerUsage(this?.promptTokens, this?.completionTokens)
+    ?.copy(cachedTokens = this?.promptTokensDetails?.cachedTokens)
 
 internal fun GroqUsage?.toProviderUsage(): ProviderEvent.Usage? {
     val usage = this ?: return null
@@ -333,7 +335,7 @@ internal fun GroqUsage?.toProviderUsage(): ProviderEvent.Usage? {
     return providerUsage(
         input + (usage.cacheCreationInputTokens ?: 0) + (usage.cacheReadInputTokens ?: 0),
         usage.completionTokens
-    )
+    )?.copy(cachedTokens = usage.cachedTokens ?: usage.cacheReadInputTokens)
 }
 
 internal fun UsageMetadata?.toProviderUsage(): ProviderEvent.Usage? {

@@ -11,6 +11,8 @@ import dev.chungjungsoo.gptmobile.data.huggingface.HuggingFaceTokenStore
 import dev.chungjungsoo.gptmobile.data.localmodel.GatedDownloadCoordinator
 import dev.chungjungsoo.gptmobile.data.localruntime.localSamplingDefaults
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.supportsOpenAIOptions
+import dev.chungjungsoo.gptmobile.data.network.OpenAIModelOption
 import dev.chungjungsoo.gptmobile.data.repository.LocalModelRepository
 import dev.chungjungsoo.gptmobile.data.repository.ModelCatalogRepository
 import dev.chungjungsoo.gptmobile.data.repository.SettingRepository
@@ -147,7 +149,7 @@ class SetupViewModelV2 @Inject constructor(
         _platformName.value = getDefaultPlatformName(clientType)
         _apiUrl.value = getDefaultApiUrl(clientType)
         _apiKey.value = ""
-        _model.value = ModelConstants.defaultModel(clientType)
+        _model.value = if (clientType.supportsOpenAIOptions()) "" else ModelConstants.defaultModel(clientType)
         _wizardStep.value = 0
     }
 
@@ -157,10 +159,12 @@ class SetupViewModelV2 @Inject constructor(
 
     fun updateApiUrl(url: String) {
         _apiUrl.value = url
+        if (_selectedClientType.value?.supportsOpenAIOptions() == true) _model.value = ""
     }
 
     fun updateApiKey(key: String) {
         _apiKey.value = key
+        if (_selectedClientType.value?.supportsOpenAIOptions() == true) _model.value = ""
     }
 
     fun updateModel(modelName: String) {
@@ -234,7 +238,7 @@ class SetupViewModelV2 @Inject constructor(
         downloadActions.openAccessTokenDialog()
     }
 
-    fun savePlatform(onSuccess: (() -> Unit)? = null) {
+    fun savePlatform(reasoning: Boolean = false, reasoningEffort: String = "medium", modelCatalog: List<OpenAIModelOption> = emptyList(), onSuccess: (() -> Unit)? = null) {
         if (_saveStatus.value is SaveStatus.Saving) return
         val clientType = _selectedClientType.value ?: return
         _saveStatus.value = SaveStatus.Saving
@@ -260,7 +264,9 @@ class SetupViewModelV2 @Inject constructor(
                     accelerator = defaults?.accelerator,
                     systemPrompt = ModelConstants.DEFAULT_PROMPT,
                     stream = true,
-                    reasoning = false,
+                    reasoning = reasoning,
+                    reasoningEffort = reasoningEffort,
+                    modelCatalog = modelCatalog,
                     timeout = 30
                 )
                 settingRepository.addPlatformV2(platform)

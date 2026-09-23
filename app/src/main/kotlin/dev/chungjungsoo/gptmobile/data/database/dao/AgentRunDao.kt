@@ -10,6 +10,29 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AgentRunDao {
+    @Transaction
+    suspend fun recordUsage(
+        runId: String,
+        inputTokens: Long,
+        outputTokens: Long,
+        cachedTokens: Long?,
+        contextTokens: Long,
+        contextLimit: Int,
+        endpoint: String
+    ) {
+        val run = getById(runId) ?: return
+        upsert(
+            run.copy(
+                inputTokens = inputTokens,
+                outputTokens = outputTokens,
+                cachedTokens = cachedTokens,
+                contextTokens = contextTokens,
+                contextLimit = contextLimit,
+                endpointSnapshot = endpoint
+            )
+        )
+    }
+
     @Upsert
     suspend fun upsert(run: AgentRun)
 

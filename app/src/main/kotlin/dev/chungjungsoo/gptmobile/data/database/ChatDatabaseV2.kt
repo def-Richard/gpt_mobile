@@ -18,11 +18,13 @@ import dev.chungjungsoo.gptmobile.data.database.entity.AssistantRevisionListConv
 import dev.chungjungsoo.gptmobile.data.database.entity.AssistantTimelineListConverter
 import dev.chungjungsoo.gptmobile.data.database.entity.ChatAttachmentListConverter
 import dev.chungjungsoo.gptmobile.data.database.entity.ChatPlatformModelV2
+import dev.chungjungsoo.gptmobile.data.database.entity.ChatReasoningConverter
 import dev.chungjungsoo.gptmobile.data.database.entity.ChatRoomV2
 import dev.chungjungsoo.gptmobile.data.database.entity.ContextCheckpointEntity
 import dev.chungjungsoo.gptmobile.data.database.entity.LocalModel
 import dev.chungjungsoo.gptmobile.data.database.entity.MessageV2
 import dev.chungjungsoo.gptmobile.data.database.entity.ModelCapacityEntity
+import dev.chungjungsoo.gptmobile.data.database.entity.PlatformModelCatalogConverter
 import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.data.database.entity.StringListConverter
 import dev.chungjungsoo.gptmobile.data.database.entity.ToolConnection
@@ -42,10 +44,12 @@ import dev.chungjungsoo.gptmobile.data.database.entity.ToolEvent
         ContextCheckpointEntity::class,
         ModelCapacityEntity::class
     ],
-    version = 11,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(
+    PlatformModelCatalogConverter::class,
+    ChatReasoningConverter::class,
     StringListConverter::class,
     ChatAttachmentListConverter::class,
     AssistantRevisionListConverter::class,

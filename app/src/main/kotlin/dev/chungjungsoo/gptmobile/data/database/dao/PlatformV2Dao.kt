@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
+import dev.chungjungsoo.gptmobile.data.network.OpenAIModelOption
 
 @Dao
 interface PlatformV2Dao {
@@ -22,6 +23,20 @@ interface PlatformV2Dao {
 
     @Update
     suspend fun editPlatform(platform: PlatformV2)
+
+    @Transaction
+    suspend fun replaceModelCatalog(platform: PlatformV2, models: List<OpenAIModelOption>): Boolean {
+        val current = getPlatform(platform.id) ?: return false
+        if (current.uid != platform.uid || current.apiUrl != platform.apiUrl || current.compatibleType != platform.compatibleType) return false
+        editPlatform(current.copy(modelCatalog = models))
+        return true
+    }
+
+    @Transaction
+    suspend fun editSettingsPreservingCatalog(platform: PlatformV2, resetCatalog: Boolean) {
+        val catalog = if (resetCatalog) emptyList() else getPlatform(platform.id)?.modelCatalog ?: platform.modelCatalog
+        editPlatform(platform.copy(modelCatalog = catalog))
+    }
 
     @Transaction
     suspend fun deletePlatform(platform: PlatformV2) {

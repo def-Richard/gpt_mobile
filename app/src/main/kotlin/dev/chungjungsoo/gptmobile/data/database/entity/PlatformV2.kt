@@ -3,9 +3,13 @@ package dev.chungjungsoo.gptmobile.data.database.entity
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.TypeConverter
 import dev.chungjungsoo.gptmobile.data.model.ClientType
 import dev.chungjungsoo.gptmobile.data.model.GeminiSafetySettings
+import dev.chungjungsoo.gptmobile.data.network.OpenAIModelOption
 import java.util.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 @Entity(tableName = "platform_v2")
 data class PlatformV2(
@@ -77,5 +81,19 @@ data class PlatformV2(
     val dangerousContentSafetyThreshold: String = GeminiSafetySettings.BLOCK_NONE,
 
     @ColumnInfo(name = "resumable_replies", defaultValue = "0")
-    val resumableReplies: Boolean = false
+    val resumableReplies: Boolean = false,
+
+    @ColumnInfo(name = "reasoning_effort", defaultValue = "'medium'")
+    val reasoningEffort: String = "medium",
+
+    @ColumnInfo(name = "model_catalog", defaultValue = "'[]'")
+    val modelCatalog: List<OpenAIModelOption> = emptyList()
 )
+
+class PlatformModelCatalogConverter {
+    @TypeConverter
+    fun fromString(value: String): List<OpenAIModelOption> = Json.decodeFromString(value)
+
+    @TypeConverter
+    fun toString(value: List<OpenAIModelOption>): String = Json.encodeToString(value)
+}

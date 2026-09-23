@@ -37,6 +37,7 @@ import androidx.compose.material3.CardColors
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +65,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.database.entity.AgentRun
 import dev.chungjungsoo.gptmobile.data.database.entity.AssistantTimelineItem
@@ -142,6 +144,8 @@ fun OpponentChatBubble(
     timeline: List<AssistantTimelineItem> = emptyList(),
     attachments: List<String> = emptyList(),
     agentRun: AgentRun? = null,
+    showMetadata: Boolean = false,
+    replyAt: Long? = null,
     runNotices: List<ChatRunNotice> = emptyList(),
     toolEvents: List<ToolEvent> = emptyList(),
     contentIdentity: Any = text,
@@ -263,61 +267,64 @@ fun OpponentChatBubble(
         }
 
         if (!isLoading) {
+            if (showMetadata && (text.isNotBlank() || thoughts.isNotBlank() || agentRun != null)) {
+                AssistantMessageMetadata(agentRun, replyAt)
+            }
             Row(
-                modifier = Modifier.padding(start = 16.dp)
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp).horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!isError) {
                     CopyTextIcon(onCopyClick)
-                    Spacer(modifier = Modifier.width(8.dp))
                     SelectTextIcon(onSelectClick)
                     if (canEdit) {
-                        Spacer(modifier = Modifier.width(8.dp))
                         EditTextIcon(onEditClick)
                     }
                 }
                 if (canRetry) {
-                    Spacer(modifier = Modifier.width(8.dp))
                     RetryIcon(onRetryClick)
+                }
+                if (revisionIndexLabel != null && (canShowPreviousRevision || canShowNextRevision)) {
+                    IconButton(
+                        enabled = canShowPreviousRevision,
+                        modifier = Modifier.size(width = 48.dp, height = 32.dp),
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                        onClick = onShowPreviousRevision
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = stringResource(R.string.previous_revision),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        text = revisionIndexLabel,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 14.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(
+                        enabled = canShowNextRevision,
+                        modifier = Modifier.size(width = 48.dp, height = 32.dp),
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                        onClick = onShowNextRevision
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.next_revision),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
             if (canRetry) {
                 Text(
                     text = stringResource(R.string.retry_tools_warning),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 14.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 16.dp)
                 )
-            }
-
-            revisionIndexLabel?.let { label ->
-                Row(
-                    modifier = Modifier.padding(start = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        enabled = canShowPreviousRevision,
-                        onClick = onShowPreviousRevision
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = stringResource(R.string.previous_revision)
-                        )
-                    }
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    IconButton(
-                        enabled = canShowNextRevision,
-                        onClick = onShowNextRevision
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = stringResource(R.string.next_revision)
-                        )
-                    }
-                }
             }
         }
     }
@@ -341,7 +348,7 @@ private fun QuietAssistantContent(
                 content = text,
                 contentIdentity = contentIdentity,
                 isStreaming = isStreaming,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp)
             )
             if (showStreamingIndicator) {
                 Text(
@@ -404,40 +411,44 @@ private fun DetailsButton(
 
 @Composable
 private fun CopyTextIcon(onCopyClick: () -> Unit) {
-    IconButton(onClick = onCopyClick) {
+    IconButton(onClick = onCopyClick, modifier = Modifier.size(width = 48.dp, height = 32.dp), colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_copy),
-            contentDescription = stringResource(R.string.copy_text)
+            contentDescription = stringResource(R.string.copy_text),
+            modifier = Modifier.size(18.dp)
         )
     }
 }
 
 @Composable
 private fun SelectTextIcon(onSelectClick: () -> Unit) {
-    IconButton(onClick = onSelectClick) {
+    IconButton(onClick = onSelectClick, modifier = Modifier.size(width = 48.dp, height = 32.dp), colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_select),
-            contentDescription = stringResource(R.string.select_text)
+            contentDescription = stringResource(R.string.select_text),
+            modifier = Modifier.size(18.dp)
         )
     }
 }
 
 @Composable
 private fun RetryIcon(onRetryClick: () -> Unit) {
-    IconButton(onClick = onRetryClick) {
+    IconButton(onClick = onRetryClick, modifier = Modifier.size(width = 48.dp, height = 32.dp), colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
         Icon(
             Icons.Rounded.Refresh,
-            contentDescription = stringResource(R.string.retry)
+            contentDescription = stringResource(R.string.retry),
+            modifier = Modifier.size(18.dp)
         )
     }
 }
 
 @Composable
 private fun EditTextIcon(onEditClick: () -> Unit) {
-    IconButton(onClick = onEditClick) {
+    IconButton(onClick = onEditClick, modifier = Modifier.size(width = 48.dp, height = 32.dp), colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
         Icon(
             imageVector = Icons.Outlined.Edit,
-            contentDescription = stringResource(R.string.edit)
+            contentDescription = stringResource(R.string.edit),
+            modifier = Modifier.size(18.dp)
         )
     }
 }

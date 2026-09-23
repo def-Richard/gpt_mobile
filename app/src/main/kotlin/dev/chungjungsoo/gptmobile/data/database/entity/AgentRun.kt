@@ -71,7 +71,25 @@ data class AgentRun(
     val completedAt: Long? = null,
 
     @ColumnInfo(name = "terminal_error")
-    val terminalError: String? = null
+    val terminalError: String? = null,
+
+    @ColumnInfo(name = "input_tokens")
+    val inputTokens: Long? = null,
+
+    @ColumnInfo(name = "output_tokens")
+    val outputTokens: Long? = null,
+
+    @ColumnInfo(name = "cached_tokens")
+    val cachedTokens: Long? = null,
+
+    @ColumnInfo(name = "context_tokens")
+    val contextTokens: Long? = null,
+
+    @ColumnInfo(name = "context_limit")
+    val contextLimit: Int? = null,
+
+    @ColumnInfo(name = "endpoint_snapshot")
+    val endpointSnapshot: String? = null
 )
 
 data class AgentRunDraft(

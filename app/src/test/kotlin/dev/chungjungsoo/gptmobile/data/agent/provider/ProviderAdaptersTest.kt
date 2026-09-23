@@ -95,6 +95,52 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProviderAdaptersTest {
+    @Test
+    fun `priority service tier is sent only after explicit OpenAI fast opt in`() = runBlocking {
+        for (type in listOf(ClientType.OPENAI, ClientType.CUSTOM)) {
+            for (fast in listOf(false, true)) {
+                val api = FakeOpenAIAPI(responseRounds = ArrayDeque(listOf(emptyFlow())))
+                OpenAIResponsesAdapter(api, attachmentEncoder()).openSession(turns(), platform(type), fastMode = fast)
+                    .streamRound(emptyList(), emptyList()).toList()
+                val request = api.responseRequests.single()
+                val encoded = NetworkClient.openAIJson.encodeToString(request)
+                if (fast && type == ClientType.OPENAI) {
+                    assertEquals("priority", request.serviceTier)
+                    assertTrue(encoded.contains("\"service_tier\":\"priority\""))
+                } else {
+                    assertNull(request.serviceTier)
+                    assertFalse(encoded.contains("service_tier"))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `openai adapters send the selected effort and request streamed usage`() = runBlocking {
+        for (enabled in listOf(false, true)) {
+            val api = FakeOpenAIAPI(
+                chatRounds = ArrayDeque(listOf(flowOf<ChatCompletionChunk>())),
+                responseRounds = ArrayDeque(listOf(flowOf<ResponsesStreamEvent>()))
+            )
+            val profile = platform(ClientType.OPENAI).copy(reasoning = enabled, reasoningEffort = "high")
+            OpenAIResponsesAdapter(api, attachmentEncoder()).openSession(turns(), profile)
+                .streamRound(emptyList(), emptyList()).toList()
+            assertEquals(if (enabled) "high" else null, api.responseRequests.single().reasoning?.effort)
+            OpenAICompatibleAdapter(api, FakeGroqAPI(), attachmentEncoder()).openSession(turns(), profile.copy(compatibleType = ClientType.CUSTOM))
+                .streamRound(emptyList(), emptyList()).toList()
+            assertEquals(if (enabled) "high" else null, api.chatRequests.single().reasoningEffort)
+            assertEquals(true, api.chatRequests.single().streamOptions?.includeUsage)
+        }
+    }
+
+    @Test
+    fun `cached input stays a subset of reported input usage`() {
+        val response = NetworkClient.json.decodeFromString<ResponseUsage>("""{"input_tokens":100,"output_tokens":20,"input_tokens_details":{"cached_tokens":80}}""")
+        val completion = NetworkClient.json.decodeFromString<ChatCompletionUsage>("""{"prompt_tokens":100,"completion_tokens":20,"prompt_tokens_details":{"cached_tokens":80}}""")
+        assertEquals(ProviderEvent.Usage(100, 20, 80), response.toProviderUsage())
+        assertEquals(response.toProviderUsage(), completion.toProviderUsage())
+    }
+
     private val definition = AgentToolDefinition(
         name = "weather",
         description = "Weather",
@@ -1076,7 +1122,7 @@ class ProviderAdaptersTest {
             .toList()
 
         assertEquals(
-            listOf(ProviderEvent.TextDelta("hi"), ProviderEvent.Usage(14, 3), ProviderEvent.Completed),
+            listOf(ProviderEvent.TextDelta("hi"), ProviderEvent.Usage(14, 3, 5), ProviderEvent.Completed),
             events
         )
     }

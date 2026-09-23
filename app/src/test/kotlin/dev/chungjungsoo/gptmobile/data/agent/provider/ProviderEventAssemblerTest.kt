@@ -123,12 +123,12 @@ class ProviderEventAssemblerTest {
     }
 
     @Test
-    fun `responses assembler emits usage before completed and ignores cached subset`() {
+    fun `responses assembler emits usage before completed and preserves cached subset`() {
         val assembler = OpenAIResponsesEventAssembler()
         val fixture = """{"type":"response.completed","response":{"id":"resp_1","status":"completed","usage":{"input_tokens":12,"output_tokens":4,"input_tokens_details":{"cached_tokens":5}}}}"""
 
         assertEquals(
-            listOf(ProviderEvent.Usage(12, 4), ProviderEvent.Completed),
+            listOf(ProviderEvent.Usage(12, 4, 5), ProviderEvent.Completed),
             assembler.accept(NetworkClient.openAIJson.decodeFromString<ResponsesStreamEvent>(fixture))
         )
     }
@@ -188,7 +188,7 @@ class ProviderEventAssemblerTest {
     }
 
     @Test
-    fun `chat completion usage ignores cached subset and requires both counts`() {
+    fun `chat completion usage requires both counts`() {
         assertEquals(
             ProviderEvent.Usage(9, 2),
             ChatCompletionUsage(promptTokens = 9, completionTokens = 2).toProviderUsage()
@@ -199,7 +199,7 @@ class ProviderEventAssemblerTest {
     @Test
     fun `groq usage adds cache input tokens when the contract supplies them`() {
         assertEquals(
-            ProviderEvent.Usage(14, 3),
+            ProviderEvent.Usage(14, 3, 2),
             GroqUsage(
                 promptTokens = 8,
                 completionTokens = 3,

@@ -6,6 +6,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
 import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 @Parcelize
 @Entity(tableName = "chats_v2")
@@ -28,7 +30,16 @@ data class ChatRoomV2(
     val createdAt: Long = System.currentTimeMillis() / 1000,
 
     @ColumnInfo(name = "updated_at")
-    val updatedAt: Long = System.currentTimeMillis() / 1000
+    val updatedAt: Long = System.currentTimeMillis() / 1000,
+
+    @ColumnInfo(name = "active_platform_uid")
+    val activePlatformUid: String? = null,
+
+    @ColumnInfo(name = "reasoning_efforts", defaultValue = "'{}'")
+    val reasoningEfforts: Map<String, String> = emptyMap(),
+
+    @ColumnInfo(name = "fast_platforms", defaultValue = "''")
+    val fastPlatforms: List<String> = emptyList()
 ) : Parcelable
 
 class StringListConverter {
@@ -37,4 +48,12 @@ class StringListConverter {
 
     @TypeConverter
     fun fromList(value: List<String>): String = if (value.isEmpty()) "" else value.joinToString(",")
+}
+
+class ChatReasoningConverter {
+    @TypeConverter
+    fun fromString(value: String): Map<String, String> = Json.decodeFromString(value)
+
+    @TypeConverter
+    fun toString(value: Map<String, String>): String = Json.encodeToString(value)
 }

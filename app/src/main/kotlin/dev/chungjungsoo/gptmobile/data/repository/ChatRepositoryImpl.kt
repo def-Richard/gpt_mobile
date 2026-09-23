@@ -80,6 +80,8 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 
+internal fun preparedConversationChatId(turns: List<ConversationTurn>): Int = turns.firstNotNullOfOrNull { it.userMessage.chatId.takeIf { id -> id > 0 } } ?: 0
+
 class ChatRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val chatRoomDao: ChatRoomDao,
@@ -255,6 +257,9 @@ class ChatRepositoryImpl @Inject constructor(
             val assistantProgress = StringBuilder()
             var usageAdjustment = 0
             var latestUsage: ProviderEvent.Usage? = null
+            var totalInputTokens = 0L
+            var totalOutputTokens = 0L
+            var totalCachedTokens: Long? = 0L
             var lastRequestEstimate = prepared.tokenBudget.estimatedInputTokens
             var didCompactDuringRun = false
             var compactedProgressLength = 0
@@ -344,6 +349,18 @@ class ChatRepositoryImpl @Inject constructor(
 
                         is ProviderEvent.Usage -> {
                             latestUsage = providerEvent
+                            totalInputTokens += providerEvent.inputTokens
+                            totalOutputTokens += providerEvent.outputTokens
+                            totalCachedTokens = totalCachedTokens?.let { total -> providerEvent.cachedTokens?.let { total + it } }
+                            agentRunDao.recordUsage(
+                                runId,
+                                totalInputTokens,
+                                totalOutputTokens,
+                                totalCachedTokens,
+                                providerEvent.inputTokens.toLong() + providerEvent.outputTokens,
+                                activePrepared.tokenBudget.contextLimit,
+                                platform.apiUrl
+                            )
                             usageAdjustment = providerEvent.inputTokens - lastRequestEstimate + providerEvent.outputTokens
                         }
 
@@ -734,7 +751,11 @@ class ChatRepositoryImpl @Inject constructor(
         val preparedTurns = ensureProviderReferencesForTurns(turns, platform)
         validateInlineBudgetIfNeeded(preparedTurns, platform)
         return when (platform.compatibleType) {
-            ClientType.OPENAI -> openAIResponsesAdapter.openSession(preparedTurns, platform, prepared, onUnconfirmedRemoteCancellation)
+            ClientType.OPENAI -> {
+                val chatId = preparedConversationChatId(turns)
+                val fastMode = chatId > 0 && agentPersistenceDao.getChatRoom(chatId)?.fastPlatforms?.contains(platform.uid) == true
+                openAIResponsesAdapter.openSession(preparedTurns, platform, prepared, onUnconfirmedRemoteCancellation, fastMode)
+            }
 
             ClientType.GROQ, ClientType.OLLAMA, ClientType.OPENROUTER, ClientType.CUSTOM ->
                 openAICompatibleAdapter.openSession(preparedTurns, platform)

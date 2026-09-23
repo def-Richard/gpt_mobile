@@ -53,7 +53,12 @@ import dev.chungjungsoo.gptmobile.R
 import dev.chungjungsoo.gptmobile.data.ModelConstants
 import dev.chungjungsoo.gptmobile.data.database.entity.PlatformV2
 import dev.chungjungsoo.gptmobile.data.model.ClientType
+import dev.chungjungsoo.gptmobile.data.model.supportsOpenAIOptions
 import dev.chungjungsoo.gptmobile.presentation.common.DestinationCard
+import dev.chungjungsoo.gptmobile.presentation.common.OpenAIConnectionTest
+import dev.chungjungsoo.gptmobile.presentation.common.OpenAIModelField
+import dev.chungjungsoo.gptmobile.presentation.common.ReasoningEffortField
+import dev.chungjungsoo.gptmobile.presentation.common.rememberOpenAIProfileState
 import dev.chungjungsoo.gptmobile.presentation.ui.localmodel.LocalModelDownloadDialogHost
 import dev.chungjungsoo.gptmobile.presentation.ui.localmodel.rememberLocalModelDownloader
 import dev.chungjungsoo.gptmobile.presentation.ui.setup.LocalModelCatalogPicker
@@ -78,6 +83,19 @@ fun AddPlatformScreen(
     var apiKey by remember { mutableStateOf("") }
     var model by rememberSaveable { mutableStateOf("") }
     var isReasoningEnabled by rememberSaveable { mutableStateOf(false) }
+    var reasoningEffort by rememberSaveable { mutableStateOf("medium") }
+    val draft = PlatformV2(
+        uid = "draft",
+        name = platformName,
+        compatibleType = selectedClientType ?: ClientType.OPENAI,
+        apiUrl = apiUrl,
+        token = apiKey,
+        model = model,
+        reasoning = isReasoningEnabled,
+        reasoningEffort = reasoningEffort
+    )
+    val openAIState = rememberOpenAIProfileState(draft)
+    val usesOpenAIOptions = selectedClientType?.supportsOpenAIOptions() == true
     val scrollState = rememberScrollState()
     val scrollBehavior = pinnedExitUntilCollapsedScrollBehavior(
         canScroll = { scrollState.canScrollForward || scrollState.canScrollBackward }
@@ -98,7 +116,9 @@ fun AddPlatformScreen(
         if (isLocalPlatform) {
             canSave
         } else {
-            model.isNotBlank() && apiUrl.isNotBlank()
+            model.isNotBlank() &&
+                apiUrl.isNotBlank() &&
+                (!usesOpenAIOptions || openAIState.models.any { it.id == model })
         }
     val navigateBack = { if (step == AddPlatformStep.DETAILS) step = AddPlatformStep.API_TYPE else onNavigationClick() }
     BackHandler(enabled = step == AddPlatformStep.DETAILS) {
@@ -132,6 +152,7 @@ fun AddPlatformScreen(
                 apiUrl = if (clientType == ClientType.LITERT_LM) "" else apiUrl.trim(),
                 token = apiKey.trim().takeIf { it.isNotEmpty() && clientType != ClientType.LITERT_LM },
                 model = selectedModel,
+                modelCatalog = if (usesOpenAIOptions) openAIState.models else emptyList(),
                 temperature = defaults?.temperature ?: 1.0f,
                 topP = defaults?.topP ?: 1.0f,
                 topK = defaults?.topK,
@@ -140,6 +161,7 @@ fun AddPlatformScreen(
                 systemPrompt = ModelConstants.DEFAULT_PROMPT,
                 stream = true,
                 reasoning = isReasoningEnabled && clientType != ClientType.LITERT_LM,
+                reasoningEffort = reasoningEffort,
                 timeout = 30
             ),
             onSuccess = {
@@ -165,7 +187,12 @@ fun AddPlatformScreen(
                     isSaveEnabled = isSaveEnabled,
                     isSaving = saveState.isSaving,
                     errorMessage = saveState.errorMessage,
-                    onSave = ::savePlatform
+                    onSave = ::savePlatform,
+                    testContent = if (usesOpenAIOptions) {
+                        { OpenAIConnectionTest(draft, openAIState) }
+                    } else {
+                        null
+                    }
                 )
             }
         }
@@ -200,7 +227,7 @@ fun AddPlatformScreen(
                                 selectedClientType = clientType
                                 platformName = ModelConstants.defaultPlatformName(clientType)
                                 apiUrl = ModelConstants.defaultApiUrl(clientType)
-                                model = ModelConstants.defaultModel(clientType)
+                                model = if (clientType.supportsOpenAIOptions()) "" else ModelConstants.defaultModel(clientType)
                                 apiKey = ""
                                 isReasoningEnabled = false
                                 step = AddPlatformStep.DETAILS
@@ -236,7 +263,10 @@ fun AddPlatformScreen(
                     if (clientType != ClientType.LITERT_LM) {
                         OutlinedTextField(
                             value = apiUrl,
-                            onValueChange = { apiUrl = it },
+                            onValueChange = {
+                                apiUrl = it
+                                if (usesOpenAIOptions) model = ""
+                            },
                             label = { Text(stringResource(R.string.api_url)) },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -249,7 +279,10 @@ fun AddPlatformScreen(
                         )
                         OutlinedTextField(
                             value = apiKey,
-                            onValueChange = { apiKey = it },
+                            onValueChange = {
+                                apiKey = it
+                                if (usesOpenAIOptions) model = ""
+                            },
                             label = { Text(stringResource(R.string.api_key)) },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -258,25 +291,29 @@ fun AddPlatformScreen(
                             visualTransformation = PasswordVisualTransformation(),
                             supportingText = { Text(stringResource(R.string.api_key_supporting)) }
                         )
-                        OutlinedTextField(
-                            value = model,
-                            onValueChange = { model = it },
-                            label = { Text(stringResource(R.string.model)) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp),
-                            singleLine = true,
-                            isError = model.isBlank(),
-                            supportingText = {
-                                Text(
-                                    if (model.isBlank()) {
-                                        stringResource(R.string.field_required)
-                                    } else {
-                                        stringResource(R.string.model_supporting)
-                                    }
-                                )
-                            }
-                        )
+                        if (usesOpenAIOptions) {
+                            OpenAIModelField(draft, openAIState, { model = it }, Modifier.fillMaxWidth().padding(top = 12.dp))
+                        } else {
+                            OutlinedTextField(
+                                value = model,
+                                onValueChange = { model = it },
+                                label = { Text(stringResource(R.string.model)) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                singleLine = true,
+                                isError = model.isBlank(),
+                                supportingText = {
+                                    Text(
+                                        if (model.isBlank()) {
+                                            stringResource(R.string.field_required)
+                                        } else {
+                                            stringResource(R.string.model_supporting)
+                                        }
+                                    )
+                                }
+                            )
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -298,6 +335,9 @@ fun AddPlatformScreen(
                                 checked = isReasoningEnabled,
                                 onCheckedChange = { isReasoningEnabled = it }
                             )
+                        }
+                        if (usesOpenAIOptions && isReasoningEnabled) {
+                            ReasoningEffortField(reasoningEffort, { reasoningEffort = it }, Modifier.fillMaxWidth().padding(top = 12.dp))
                         }
                     } else {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -366,7 +406,8 @@ private fun AddPlatformSaveBar(
     isSaveEnabled: Boolean,
     isSaving: Boolean,
     errorMessage: String?,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    testContent: (@Composable () -> Unit)? = null
 ) {
     Surface(shadowElevation = 3.dp) {
         Column(
@@ -392,22 +433,26 @@ private fun AddPlatformSaveBar(
                         .padding(bottom = 8.dp)
                 )
             }
-            Button(
-                onClick = onSave,
-                enabled = isSaveEnabled,
-                modifier = Modifier
-                    .widthIn(max = 720.dp)
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.size(12.dp))
+            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (testContent != null) {
+                    Box(Modifier.weight(1f)) { testContent() }
                 }
-                Text(stringResource(if (isSaving) R.string.saving else R.string.save))
+                Button(
+                    onClick = onSave,
+                    enabled = isSaveEnabled,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.size(12.dp))
+                    }
+                    Text(stringResource(if (isSaving) R.string.saving else R.string.save))
+                }
             }
         }
     }
@@ -416,6 +461,7 @@ private fun AddPlatformSaveBar(
 @Composable
 private fun getClientTypeName(clientType: ClientType): String = when (clientType) {
     ClientType.CUSTOM -> stringResource(R.string.custom)
+    ClientType.LITERT_LM -> stringResource(R.string.litert_lm)
     else -> ModelConstants.defaultPlatformName(clientType)
 }
 

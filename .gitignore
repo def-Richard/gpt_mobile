@@ -32,3 +32,5 @@ app/build/**
 .idea/copilot.data.migration.agent.xml
 .idea/copilot.data.migration.edit.xml
 .idea/copilot.data.migration.ask2agent.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/ruff.xml

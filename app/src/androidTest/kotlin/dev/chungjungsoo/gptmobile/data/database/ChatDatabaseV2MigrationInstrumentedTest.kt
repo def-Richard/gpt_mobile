@@ -443,6 +443,54 @@ class ChatDatabaseV2MigrationInstrumentedTest {
         database.close()
     }
 
+    @Test
+    fun openAIOptionsMigration_preservesHistoryAndDoesNotInventUsage() {
+        val name = "openai-options-11-12"
+        helper.createDatabase(name, 11).apply {
+            execSQL("INSERT INTO chats_v2 (chat_id,title,enabled_platform,created_at,updated_at) VALUES (1,'Keep chat','profile',10,11)")
+            execSQL("INSERT INTO platform_v2 (platform_id,uid,name,compatible_type,enabled,api_url,model,stream,reasoning,timeout) VALUES (1,'profile','OpenAI','OPENAI',1,'https://example.com/v1/','test-model',1,1,30)")
+            execSQL("INSERT INTO messages_v2 (message_id,chat_id,thoughts,content,attachments,revisions,active_revision_index,linked_message_id,platform_type,current_run_id,created_at) VALUES (1,1,'','Keep question','[]','[]',-1,0,NULL,NULL,12)")
+            execSQL("INSERT INTO messages_v2 (message_id,chat_id,thoughts,content,attachments,revisions,active_revision_index,linked_message_id,platform_type,current_run_id,created_at) VALUES (2,1,'','Keep answer','[]','[]',-1,1,'profile','run',13)")
+            execSQL("INSERT INTO agent_runs (run_id,chat_id,user_message_id,assistant_message_id,profile_uid,provider_snapshot,model_snapshot,status,created_at) VALUES ('run',1,1,2,'profile','OPENAI','test-model','COMPLETED',12)")
+            close()
+        }
+        helper.runMigrationsAndValidate(name, 12, true, ChatDatabaseV2Migrations.MIGRATION_11_12).use { database ->
+            database.query("SELECT content FROM messages_v2 WHERE message_id=2").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Keep answer", cursor.getString(0))
+            }
+            database.query("SELECT reasoning_effort FROM platform_v2 WHERE platform_id=1").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("medium", cursor.getString(0))
+            }
+            database.query("SELECT input_tokens,output_tokens,cached_tokens,context_tokens FROM agent_runs WHERE run_id='run'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                repeat(4) { assertTrue(cursor.isNull(it)) }
+            }
+        }
+    }
+
+    @Test
+    fun providerCatalogMigrationStartsEmptyAndFastIsOptIn() {
+        val name = "provider-catalog-12-13"
+        helper.createDatabase(name, 12).apply {
+            execSQL("INSERT INTO chats_v2 (chat_id,title,enabled_platform,created_at,updated_at) VALUES (1,'Keep chat','profile',10,11)")
+            execSQL("INSERT INTO platform_v2 (platform_id,uid,name,compatible_type,enabled,api_url,model,stream,reasoning,timeout) VALUES (1,'profile','OpenAI','OPENAI',1,'https://example.com/v1/','keep-model',1,1,30)")
+            close()
+        }
+        helper.runMigrationsAndValidate(name, 13, true, ChatDatabaseV2Migrations.MIGRATION_12_13).use { database ->
+            database.query("SELECT model,model_catalog FROM platform_v2 WHERE platform_id=1").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("keep-model", cursor.getString(0))
+                assertEquals("[]", cursor.getString(1))
+            }
+            database.query("SELECT fast_platforms FROM chats_v2 WHERE chat_id=1").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("", cursor.getString(0))
+            }
+        }
+    }
+
     private fun assertCount(
         database: androidx.sqlite.db.SupportSQLiteDatabase,
         table: String,
