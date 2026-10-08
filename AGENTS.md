@@ -5,7 +5,7 @@ This file provides guidance to AI coding agents working on this Android codebase
 ## Repository inspection and local versions
 
 - Resolve file paths with `rg --files` before reading them; do not guess a filename from its class name. On Windows, pass directories and `-g` filters to `rg` rather than literal wildcard paths.
-- Downstream versions append `-1`, `-2`, etc. to the upstream `versionName`. Each delivered update must also increase `versionCode`; changing only the display name does not make Android recognize an upgrade. The current release is `0.9.0-2` with `versionCode = 27` (the earlier local test build used 26).
+- Downstream versions append `-1`, `-2`, etc. to the upstream `versionName`. Each delivered update must also increase `versionCode`; changing only the display name does not make Android recognize an upgrade. The current version is `0.9.1-1` with `versionCode = 28` (the previous release used 27).
 
 ## Project Overview
 

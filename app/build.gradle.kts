@@ -23,8 +23,8 @@ extensions.configure<ApplicationExtension> {
         applicationId = "dev.chungjungsoo.gptmobile"
         minSdk = 31
         targetSdk = 37
-        versionCode = 27
-        versionName = "0.9.0-2"
+        versionCode = 28
+        versionName = "0.9.1-1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
