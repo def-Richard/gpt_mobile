@@ -420,7 +420,7 @@ class ChatRepositoryImpl @Inject constructor(
         val preparedUserMessages = prepareMessagesForPlatform(turns.map { it.userMessage }, platform)
         return turns.mapIndexed { index, turn ->
             turn.copy(userMessage = preparedUserMessages[index])
-        }
+        }.also { validateInlineBudgetIfNeeded(it, platform) }
     }
 
     private suspend fun validateInlineBudgetIfNeeded(
@@ -428,7 +428,11 @@ class ChatRepositoryImpl @Inject constructor(
         platform: PlatformV2
     ) {
         val maxInlineBytes = ProviderContextPolicy.forClientType(platform.compatibleType).maxInlineAttachmentBytes ?: return
-        attachmentUploadCoordinator.validateInlineAttachmentBudget(contextTurns, maxInlineBytes)
+        attachmentUploadCoordinator.validateInlineAttachmentBudget(
+            contextTurns,
+            maxInlineBytes,
+            openAIPlatformUid = platform.uid.takeIf { platform.compatibleType == ClientType.OPENAI }
+        )
     }
 
     private suspend fun prepareMessagesForPlatform(
@@ -749,7 +753,6 @@ class ChatRepositoryImpl @Inject constructor(
         onUnconfirmedRemoteCancellation: (suspend (String) -> Unit)? = null
     ): AgentProviderSession {
         val preparedTurns = ensureProviderReferencesForTurns(turns, platform)
-        validateInlineBudgetIfNeeded(preparedTurns, platform)
         return when (platform.compatibleType) {
             ClientType.OPENAI -> {
                 val chatId = preparedConversationChatId(turns)

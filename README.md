@@ -2,14 +2,15 @@
 
 基于 [Taewan-P/gpt_mobile](https://github.com/Taewan-P/gpt_mobile) 的 Android 多模型聊天客户端，增加 OpenAI 与兼容接口的模型管理、会话控制和用量展示，并完善简体中文体验。
 
-**当前版本：0.9.0-2（Android 内部版本号 27）**
+**当前版本：0.9.1-1（Android 内部版本号 28）**
 
-[下载安装包](https://github.com/def-Richard/gpt_mobile/releases/latest) · [详细功能指南](docs/openai-enhancements.md) · [发布说明](docs/release-notes-v0.9.0-2.md)
+[下载安装包](https://github.com/def-Richard/gpt_mobile/releases/latest) · [详细功能指南](docs/openai-enhancements.md) · [发布说明](docs/release-notes-v0.9.1-1.md)
 
 ## 新增功能
 
 | 功能 | 行为 |
 | --- | --- |
+| Responses 图片发送 | 新图片直接随请求发送，兼容未提供 Files API 的网关；复用已有可用文件引用。 |
 | 模型目录持久化 | 使用 API 地址和密钥拉取模型，下拉选择；目录随提供商保存，重启和切换无需重新请求。 |
 | 手动刷新与检测 | 刷新成功替换目录，失败保留旧目录；保存旁增加实际模型请求检测。 |
 | 会话内控制 | 输入框上方直接切换提供商、模型和推理强度，保留历史回复。 |
@@ -23,7 +24,7 @@
 
 - 最低要求为 Android 12 / API 31。安装包与校验文件位于[本仓库 Releases](https://github.com/def-Richard/gpt_mobile/releases)。
 - 公开包采用压缩优化的 Release 构建，关闭调试标志；沿用本分支先前本地测试包的开发签名证书，以支持保留数据升级。它不是上游商店签名，不承诺覆盖其他渠道的安装包。
-- 此前本地 `0.9.0-2` 测试包的内部版本号为 26，本次公开包为 27。Android 根据内部版本号及签名判断升级，显示名称相同不代表安装包相同。
+- 本次内部版本号为 28，高于 `0.9.0-2` 公开包的 27，支持同签名覆盖升级。Android 根据内部版本号及签名判断升级，显示名称相同不代表安装包相同。
 - 旧会话会自动迁移保留。已有提供商首次升级后需手动刷新一次，建立本地模型目录；旧回复没有记录的统计不会补算。
 - 会话、目录、偏好与工具记录保存在设备本地。凭据使用 Android Keystore 加密保护，不包含在会话导出或系统备份中。
 - 刷新、检测及对话会访问用户配置的服务。检测可能消耗少量 token；Fast 的可用性、速度和费用由服务商决定。

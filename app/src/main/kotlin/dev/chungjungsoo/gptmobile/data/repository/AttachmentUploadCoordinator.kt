@@ -53,7 +53,8 @@ class AttachmentUploadCoordinator @Inject constructor(
 
     suspend fun validateInlineAttachmentBudget(
         contextTurns: List<ConversationTurn>,
-        maxInlineBytes: Long = MAX_SAFE_INLINE_BYTES
+        maxInlineBytes: Long = MAX_SAFE_INLINE_BYTES,
+        openAIPlatformUid: String? = null
     ) {
         val totalPreparedBytes = contextTurns
             .flatMap { turn ->
@@ -61,6 +62,9 @@ class AttachmentUploadCoordinator @Inject constructor(
                     addAll(turn.userMessage.attachments)
                     turn.assistantMessage?.let { addAll(it.attachments) }
                 }
+            }
+            .filterNot { attachment ->
+                openAIPlatformUid != null && attachment.providerRefFor(openAIPlatformUid)?.remoteType == AttachmentRemoteType.OPENAI_FILE
             }
             .sumOf { attachment ->
                 val file = File(resolveUploadFilePath(attachment))
@@ -73,7 +77,7 @@ class AttachmentUploadCoordinator @Inject constructor(
 
         if (totalPreparedBytes > maxInlineBytes) {
             throw IllegalStateException(
-                "These images are too large to upload safely on this provider. Remove some images or use OpenAI, Anthropic, or Google."
+                "These images are too large to send in one request. Remove some images or start a new chat."
             )
         }
     }
@@ -90,6 +94,9 @@ class AttachmentUploadCoordinator @Inject constructor(
         ) {
             return attachment
         }
+
+        // Responses accepts inline images even when a compatible gateway has no Files API.
+        if (FileUtils.isImage(resolveMimeType(attachment))) return attachment.clearProviderRef(platformUid)
 
         val uploadFile = openAIAPI.uploadFile(
             filePath = resolveUploadFilePath(attachment),
